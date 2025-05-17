@@ -9,7 +9,12 @@ The EduCrys setup is shown in the photo below.
 
 ## Control software
 
-A screenshot of the control software running on Raspberry Pi is shown below.
+A screenshot of the control software is shown below.
+
+Basic steps to run the software on Raspberry Pi in a Terminal:
+- Start the python environment in the Documents folder: ```source venv_2/bin/activate```
+- Make a new folder containing all files from [software](https://github.com/poc-handsome/educrys-control-basic/tree/main/software)
+- Change to this folder in the terminal and run ```python3 democz_game.py```
 
 ![pic](pics/screenshot.jpg)
 
