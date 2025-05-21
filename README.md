@@ -21,26 +21,28 @@ A screenshot of the control software GUI is shown below.
 <img src="pics/screenshot.jpg" width="800">
 
 **NOTE: once the GUI is running, the components of EduCrys are being controlled by the GUI elements until the window is closed.**
-Then heating and all motors are stopped as indicated in the command line output.
+On closing, heating and all motors are stopped as indicated in the command line output.
 
 The key elements of the GUI are described in the sections below.
 
 ### Logging
 
-The "Start/Stop" button on the top right activates data logging: 
-- Camera and infrared images are stored in image files with a timestamp in the file name
-- All sensor and process parameters are written to a text file (new file with a timestamp in the file name on each program)
+The **Start/Stop** button on the top right activates data logging: 
+- Camera and infrared images are stored in image files with a timestamp in the file name. Default sample rate is 30 s.
+- All sensor and process parameters are written to a text file. A new file with a timestamp in the file name on each program run. Default sample rate is 2 s.
 - Values are added to the plot
 
 ### Images
 
-Image from Raspberry Pi camera is taken (and stored) when "Set/Photo" is pressed or at a specified sample rate during logging. The camera should be adjusted before running GUI, for example with the command ```libcamera-still -t 0```.
+Image from Raspberry Pi camera is taken (and stored) when **Set/Photo** is pressed or at a specified sample rate during logging. The camera should be adjusted before running GUI, for example with the command ```libcamera-still -t 0```.
   
-Image from the infrared sensor is taken (and stored) when "Get IR" is pressed or at a specified sample rate during logging. Note that only surfaces with emissivity near 1.0 show accurate temperatures. For example, the hot plate surface is fine, but NOT the metallic crucible.
+Image from the infrared sensor is taken (and stored) when **Get IR** is pressed or at a specified sample rate during logging. Note that only surfaces with emissivity near 1.0 show accurate temperatures. For example, the hot plate surface is fine, but the metallic crucible looks much colder than it is in reality.
+
+Both images shown in the GUI are NOT live images.
 
 ### Plot
 
-The plot shows sensor values and process parameters, where individual curves can be disabled with checkboxes. Data in the plot is only updated if logging is active. Note that ranges of axes are usually not updated automatically to keep the GUI responsive. Therefore, pressing "Autoscale" or zooming out may be needed.
+The plot shows sensor values and process parameters, where individual curves can be disabled with checkboxes. Data in the plot is only updated if logging is active. Note that ranges of axes are usually not updated automatically (to keep the GUI responsive). Therefore, pressing **Autoscale** or zooming out may be needed.
 
 ### Measurements
 
@@ -54,7 +56,7 @@ Temperature sensors:
 
 **5V Current** denotes current consumption on the Raspberry Pi 5V line, which is used for motors, LED and several sensors. This should usually not exceed a few 100 mA.
 
-**Weight** comes from the weight cell attached to the seed holder. Use "Tare" after attaching the seed to obtain the weight of the growing crystal. Note the maximum weight of 1 kg.
+**Weight** comes from the weight cell attached to the seed holder. Press **Tare** after attaching the seed to obtain the weight of the growing crystal. Note the maximum weight of 1 kg.
 
 ### Heating control
 
@@ -66,17 +68,35 @@ The 1500W hotplate inside the setup is controlled by an Solid State Relay, which
 
 ### Motor control
 
-The following motor speeds can be set. Typical limits are specified.
+The following motor speeds can be set. Typical limits are specified below. The values are only applied once **Set** is pressed.
 - **Lin. vel.**: pulling wire (linear motion), -100...100 mm/min
 - **Rot. vel.**: seed rotation, -12...12 rpm. Note that the motors needs a value of about 3 rpm to start moving.
 - **Fan. vel.**: cooling fan, 0...80%. 
-The values are only applied once "Set" is pressed.
 
-**Coord. Z** denotes the vertical (Z) coordinate of the seed holder. The default range is 0...220 mm, and the motor is automatically stopped when reaching these limits. The programm always starts with a default value Z=100! Use "Set" to set the real position.
+**Coord. Z** denotes the vertical (Z) coordinate of the seed holder. The default range is 0...220 mm, and the motor is automatically stopped when reaching these limits. The programm always starts with a default value Z=100 mm! Measure the real position and use **Set** to adjust it in the GUI.
 
 ### Recipes
 
 The checkboxes **Start/stop recipe** initiate reading the time recipes from "recipes.txt" if enabled. This is possibly only when data logging is already running! During an active recipe, the manual parameter input is disabled.
+
+### Settings
+
+The first section of the main Python script defines all programm settings. 
+
+These True/False switches can disable specific components, if the programm cannot be started due to hardware errors:
+- ENABLE_WEI: Weight sensor
+- ENABLE_CAM: Camera
+- ENABLE_GPAD: Gamepad. A known problem is changed port (default: /dev/input/event7) in the gamepad.py file.
+- ENABLE_IR: Infrared sensor. If this sensor is disabled, a camera image file can be loaded and shown in the GUI.
+- ENABLE_SHT: Air temperature and humidity sensor. A hardware error will occur, if the cable to the small sensor box is not attached correctly.
+- ENABLE_INA: 5V current measurement
+- ENABLE_VIFCON: Serial RS232 interface for remote control. 
+
+The most important sample times are:
+- SENSOR_SAMPLETIME (default 2 s): Sensor readout, GUI refresh, data logging in text file
+- CAMERA_SAMPLETIME (default 30 s): Camera and infrared sensor pictures shown in GUI and stored in files
+
+Other settings are related to the limits mentioned above and various hardware configurations. **You should only change these if you know what you are doing, because the setup could be damaged.**
 
 ## Acknowledgements
 
