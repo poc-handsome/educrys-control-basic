@@ -79,6 +79,15 @@ The following motor speeds can be set. Typical limits are specified below. The v
 
 The checkboxes **Start/stop recipe** initiate reading the time recipes from "recipes.txt" if enabled. This is possibly only when data logging is already running! During an active recipe, the manual parameter input is disabled.
 
+A recipe is defined by two lists in the format:
+```
+sptime = [ 0,   1800,  2400, 7200 ] # time in sec
+spvalu = [ 60,  220,   237,  237  ] # temperature in C
+```
+The first list contains the time instants and the second list contains the controlled paramter (temperature, heating power, pulling speed, rotations speed, fand speed). If the file contains several lists with the same keyword, only the last is applied. When a recipe is started, check the command line output and activate the curve in the plot.
+
+While the temperature and power are interpolated linearly between the data points, the motor speeds are switched without interpolation (this could be changed in the Python code if needed).
+
 ### Settings
 
 The first section of the main Python script defines all programm settings. 
