@@ -20,24 +20,63 @@ A screenshot of the control software GUI is shown below.
 
 <img src="pics/screenshot.jpg" width="800">
 
-**Once the GUI is running, the components of EduCrys are being controlled by the GUI elements until the window is closed.**
-The key elements of the GUI are:
-- Image from Raspberry Pi camera, taken (and stored) when "Set/Photo" is pressed or at a specified sample rate during logging. The camera should be adjusted before running GUI, for example with the command ```libcamera-still -t 0```.
-- Image from the infrared sensor, taken (and stored) when "Get IR" is pressed or at a specified sample rate during logging. Note that only surfaces with emissivity near 1.0 (e.g. the hot plate surface, but NOT the metallic crucible) show accurate temperatures.
-- Plot of sensor values and process parameters, where individual curves can be disabled with checkboxes. Data in the plot is only updated if logging is active. Note that axes ranges are usually not updated automatically, so that pressing "Autoscale" or zooming out may be needed.
-- "Start/Stop" button for data logging: camera and infrared images and all parameters in a text file
-- Current values from temperature sensors
-  - T_PT_1: Pt100 with 3 mm thickness used for crucible temperature
-  - T_TC_1: Type K thermocouple with 1 mm thickness used for crucible or melt temperature
-  - T_TC_2: another Type K thermocouple
-  - T_air and H_air: air temperature and humidity in the small sensor box
-- Energy: power consumption of the 230V heating plate (calculated from nominal power and active time). Counting can be set to zero with "Reset"
-- 5V Current: current consumption on the Raspberry Pi 5V line used for motors (should not exceed a few 100 mA)
-- Weight: weight cell attached to the seed holder. Use "Tare" after attaching the seed to obtain the weight of the growing crystal. Note the maximum weight of 1 kg.
-- Control of the hot plate temperature with specified temperature (PID control of a chosen temperature sensor "PID Input") or power. The power in % = active time in a 10 sec on/off cycle. E.g. 5% = 0.5 sec on and 9.5 sec off.
-- Set speed for the linear pulling (Lin. vel.), seed rotatation (Rot. vel.) and cooling fan (Fan. vel.). Note that the values are only applied once "Set" is pressed.
-- The current vertical (Z) coordinate of the seed holder. The default range is 0...220 mm and the motor is automatically stopped when reaching these limits. The programm always starts with a default value Z=100! Use "Set" to set the real position.
-- The checkboxes "Start/stop recipe" initiate reading the time recipes from "recipes.txt" if enabled. This is possibly only when data logging is already running! During an active recipe, the manual parameter input is disabled.
+**NOTE: once the GUI is running, the components of EduCrys are being controlled by the GUI elements until the window is closed.**
+Then heating and all motors are stopped as indicated in the command line output.
+
+The key elements of the GUI are described in the sections below.
+
+### Logging
+
+The "Start/Stop" button on the top right activates data logging: 
+- Camera and infrared images are stored in image files with a timestamp in the file name
+- All sensor and process parameters are written to a text file (new file with a timestamp in the file name on each program)
+- Values are added to the plot
+
+### Images
+
+Image from Raspberry Pi camera is taken (and stored) when "Set/Photo" is pressed or at a specified sample rate during logging. The camera should be adjusted before running GUI, for example with the command ```libcamera-still -t 0```.
+  
+Image from the infrared sensor is taken (and stored) when "Get IR" is pressed or at a specified sample rate during logging. Note that only surfaces with emissivity near 1.0 show accurate temperatures. For example, the hot plate surface is fine, but NOT the metallic crucible.
+
+### Plot
+
+The plot shows sensor values and process parameters, where individual curves can be disabled with checkboxes. Data in the plot is only updated if logging is active. Note that ranges of axes are usually not updated automatically to keep the GUI responsive. Therefore, pressing "Autoscale" or zooming out may be needed.
+
+### Measurements
+
+Temperature sensors:
+- **T_PT_1**: Pt100 resistance sensor with 3 mm thickness used for crucible temperature
+- **T_TC_1**: Type K thermocouple with 1 mm thickness used for crucible or melt temperature
+- **T_TC_2**: another Type K thermocouple
+- **T_air and H_air**: air temperature and humidity in the small sensor box
+
+**Energy** denotes power consumption of the 230V heating plate, which is calculated from nominal power and active time. Energy usage counter can be set to zero with "Reset".
+
+**5V Current** denotes current consumption on the Raspberry Pi 5V line, which is used for motors, LED and several sensors. This should usually not exceed a few 100 mA.
+
+**Weight** comes from the weight cell attached to the seed holder. Use "Tare" after attaching the seed to obtain the weight of the growing crystal. Note the maximum weight of 1 kg.
+
+### Heating control
+
+The 1500W hotplate inside the setup is controlled by an Solid State Relay, which is periodically switched on/off. Two modes are available:
+- In the **PID** mode the temperature of the chosen sensor **PID Input** is controlled to reach **Target T**
+- In the **Manual** mode the power **Target P** is set to a given value in %. The percentage means the active time in a 10 sec on/off cycle. E.g. 5% = 0.5 sec on and 9.5 sec off. The following power limits are active in both (!) PID and Manual modes:
+  - 2.5% or lower: hotplate remains off
+  - 50% = maximum power. This power may still produce temperatures over 300 °C on the hotplate!
+
+### Motor control
+
+The following motor speeds can be set. Typical limits are specified.
+- **Lin. vel.**: pulling wire (linear motion), -100...100 mm/min
+- **Rot. vel.**: seed rotation, -12...12 rpm. Note that the motors needs a value of about 3 rpm to start moving.
+- **Fan. vel.**: cooling fan, 0...80%. 
+The values are only applied once "Set" is pressed.
+
+**Coord. Z** denotes the vertical (Z) coordinate of the seed holder. The default range is 0...220 mm, and the motor is automatically stopped when reaching these limits. The programm always starts with a default value Z=100! Use "Set" to set the real position.
+
+### Recipes
+
+The checkboxes **Start/stop recipe** initiate reading the time recipes from "recipes.txt" if enabled. This is possibly only when data logging is already running! During an active recipe, the manual parameter input is disabled.
 
 ## Acknowledgements
 
