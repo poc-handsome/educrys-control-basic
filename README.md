@@ -90,6 +90,8 @@ The first list contains the time instants and the second list contains the contr
 
 While the temperature and power are interpolated linearly between the data points, the motor speeds are switched without interpolation (this could be changed in the Python code if needed).
 
+If a recipe is stopped, the present parameter values remain fixed. They can be again adjusted manually with **Set**.
+
 ### Gamepad
 
 The gamepad is useful during the seeding process in particular. It can be used in the following way:
