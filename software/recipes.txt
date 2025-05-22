@@ -2,42 +2,33 @@
 # Parser ignores lines starting with #
 # Finds lines starting with 'key' and extracts comma-separated floats between '[' and ']'
 
+
 # Linear interpolation!
 #sptime = [ 0,    3600,  7200, 10800, 21600 ] # time in sec
 #spvalu = [ 190,  187,   187,  185,   20    ] # temperature in C
+sptime = [ 0,  1800, 2700, 7200 ] # time in sec
+spvalu = [ 20, 220,  237,  237  ] # temperature in C
 
-sptime = [ 0,   1800,  2400, 7200 ] # time in sec
-spvalu = [ 60,  220,   237,  237  ] # temperature in C
-
-
-#sptime = [ 0,     3600, 7200, 10800, 21600 ] # time in sec
-#spvalu = [ 194.5, 190,  190,  188,   20    ] # temperature in C
-#sptime = [ 0,   1800 ] # time in sec
-#spvalu = [ 20,  195    ] # temperature in C
-#sptime = [ 0,   3600 ] # time in sec
-#spvalu = [ 190, 188  ] # temperature in C
-#sptime = [ 0,  60, 180, 240 ] # time in sec
-#spvalu = [ 10, 20, 20,  10  ] # temperature in C
 
 # Linear interpolation!
 #pptime = [ 0, 29, 30 ] # time in sec
 #ppvalu = [ 5, 5,  -1 ] # power in %, if < 0: use T control
 
+
 # Switching without interpolation!
-#mltime = [ 0,   8000,  8600  ] # time in sec
-#mlvalu = [ 0.3, 1,     0      ] # pull speed in mm/min
 #mltime = [ 0,   10800, 11400  ] # time in sec
 #mlvalu = [ 0.3, 1,     0      ] # pull speed in mm/min
-
 
  
 # Switching without interpolation!
 #mrtime = [ 0, 30, 60, 180, 190 ] # time in sec
 #mrvalu = [ 0, 200,  0,  -5,  0   ] # rotation speed in rpm
 
+
 # Switching without interpolation!
 #mftime = [ 0, 60, 180, 240 ] # time in sec
 #mfvalu = [ 0, 30, 50,  0   ] # fan speed in %
+
 
 # Switching without interpolation!
 #altime = [ 0, 30, 60, 180, 190 ] # time in sec

@@ -70,7 +70,7 @@ import matplotlib.colors as mcolors
 
 # ---------- Global constants
 
-HW_VERSION=2 # 0 = home, 1 = Paul, 2 = Platine
+HW_VERSION=5 # 0=home, 1=Paul, 2=V1, 3=V3, 5=V5
 
 # Pins
 GPIO.setmode(GPIO.BCM)
@@ -87,10 +87,10 @@ FAN_PWM_PIN=25
 LIN_PWM_PIN=19 # PWM1 HW
 LIN_DIR_PIN=26
 LIN_ON_PIN=20
-if HW_VERSION == 2 :
-    SOUND_PIN=13
+if HW_VERSION == 1 :
+    SOUND_PIN=24
 else :
-    SOUND_PIN=24 
+    SOUND_PIN=13 
 
 LIN_Z_START=100
 LIN_Z_MIN=0
@@ -105,16 +105,17 @@ PID_SET_MIN=0
 PID_SET_MAX=250 # 250 C
 HEATER_POWER=1.500 # 1500 W
 SENSOR_SAMPLETIME=2000 # 2 sec
-CAMERA_SAMPLETIME=30000 # 60 sec
+CAMERA_SAMPLETIME=30000 # 30 sec
 MOTORS_SAMPLETIME=100 # 100 millisec
 HEATER_SAMPLETIME=5 # 5 millisec
-PID_SAMPLETIME=50 # 50 millisec
+PID_SAMPLETIME=50 # 50 millisecc
 PID_OUT_MIN=250 # 250 millisec
 PID_OUT_MAX=5000 # 5 sec
 PID_OUT_PERIOD=10000 # 10 sec
 PID_KP=200
 PID_KI=0.3
 PID_KD=0
+PLOT_UPDATETIME=30000 # 30 sec
 
 # ---------- Global variables
 
@@ -129,7 +130,9 @@ global sound_freq, sound_freq_old, sound_duty, sound_duty_old, sound_on, led_on
 # Time
 global tt, time_start, ttalarm, time_startalarm, time_startalarmtimer
 global tt_startctrt, tt_startctrp, tt_startmotl, tt_startmotr, tt_startmotf, tt_startal
-global lasttime_sensors, lasttime_cam, lasttime_pid, lasttime_heat, lasttime_sound
+global lasttime_sensors, lasttime_cam, lasttime_pid, lasttime_heat, lasttime_sound, lasttime_motors, lasttime_plot
+global maxtime_sensors, maxtime_pid, maxtime_heat, maxtime_motors
+
 
 global stop_threads, start, planalarm
 global fdatanamestr
@@ -139,9 +142,10 @@ global serport
 
 def init_sensors() :
     
-    global pt1, tc1, tc2, hx, mlx, sht, ina, pt1_val, tc1_val, tc2_val, hx_val, sht_val, mlx_val, ina_val, lasttime_sensors
+    global pt1, tc1, tc2, hx, mlx, sht, ina, pt1_val, tc1_val, tc2_val, hx_val, sht_val, mlx_val, ina_val, lasttime_sensors, maxtime_sensors
 
     lasttime_sensors = 0
+    maxtime_sensors = 0
     spi = board.SPI()
     
     i2c = busio.I2C(board.SCL, board.SDA, frequency=100000)
@@ -174,7 +178,7 @@ def init_sensors() :
         hx.setReadingFormat("MSB", "MSB")
         hx.autosetOffset()
         #hx.setReferenceUnit(3000)
-        hx.setReferenceUnit(3083)
+        hx.setReferenceUnit(3149) #V5
         hx_val = hx.getWeight()
         timeend = time.time_ns()
         logging.info('Weight = '+str(round(hx_val , 3) )+'g / '+str( round((timeend-timestart)/1000) )+' micros'+'\n')
@@ -232,7 +236,7 @@ def init_sensors() :
 
 def update_sensors() :
 
-    global pt1_val, tc1_val, tc2_val, hx_val, sht_val, ina_val, lasttime_sensors
+    global pt1_val, tc1_val, tc2_val, hx_val, sht_val, ina_val, lasttime_sensors, maxtime_sensors
     # global pt1, tc1, tc2, hx
 
     pt1_val_temp = pt1.temperature
@@ -311,13 +315,18 @@ def update_sensors() :
         # logging.info(ina_val)
 
 
-    lasttime_sensors = time.time_ns()
+    now = time.time_ns()
+    dtt = now - lasttime_sensors
+    #if dtt > maxtime_sensors : 
+    maxtime_sensors = dtt 
+    lasttime_sensors = now
 
 
 def update_sensors_thread() :
 
     global stop_threads
     global plot_params
+    # global maxtime_sensors
 
     logging.info("Sensor thread started\n")
 
@@ -326,12 +335,14 @@ def update_sensors_thread() :
         time.sleep(SENSOR_SAMPLETIME/1000)
         
     logging.info("Sensor thread finished\n")
+    logging.info("Last sample interval: "+str(maxtime_sensors/1e6)+"ms\n")
+    
     
 # ---------- PID control
 
 def init_pid() :
     
-    global pid_kp_norm, pid_ki_norm, pid_kd_norm, pid_out_i, lasttime_pid, pid_in, pid_in_old, pid_out, pid_mode, pid_out_man, pid_set, pid_sel
+    global pid_kp_norm, pid_ki_norm, pid_kd_norm, pid_out_i, lasttime_pid, pid_in, pid_in_old, pid_out, pid_mode, pid_out_man, pid_set, pid_sel, maxtime_pid
         
     pid_sampletime_s = PID_SAMPLETIME / 1000
     pid_kp_norm = PID_KP
@@ -343,6 +354,7 @@ def init_pid() :
     pid_out = PID_OUT_MIN
     pid_out_i = pid_out
     lasttime_pid = 0
+    maxtime_pid = 0
     pid_mode = 1
     pid_out_man = PID_OUT_MIN
     pid_set = 0
@@ -352,7 +364,7 @@ def init_pid() :
 
 def update_pid() :
     
-    global lasttime_pid, pid_in, pid_in_old, pid_out_p, pid_out_i, pid_out_d, pid_out
+    global lasttime_pid, pid_in, pid_in_old, pid_out_p, pid_out_i, pid_out_d, pid_out, maxtime_pid
     # global pid_kp_norm, pid_ki_norm, pid_kd_norm, pid_set, pid_out, pid_out_man, pid_sel
     
     now = time.time_ns()
@@ -379,7 +391,11 @@ def update_pid() :
             pid_out = PID_OUT_MAX
         elif pid_out < PID_OUT_MIN : 
             pid_out = PID_OUT_MIN         
-        
+
+        dtt = now - lasttime_pid 
+        #if dtt > maxtime_pid : 
+        maxtime_pid = dtt 
+
         lasttime_pid = now
         pid_in_old = pid_in
         
@@ -391,6 +407,7 @@ def update_pid() :
 def update_pid_thread() :
 
     global stop_threads
+    # global maxtime_pid
 
     logging.info("PID thread started\n")
 
@@ -399,29 +416,36 @@ def update_pid_thread() :
         time.sleep(PID_SAMPLETIME/1000)
 
     logging.info("PID thread finished\n")
+    logging.info("Last sample interval: "+str(maxtime_pid/1e6)+"ms\n")
 
 # ---
 
 def init_heating():
     
-    global lasttime_heat, kwh_val
+    global lasttime_heat, kwh_val, maxtime_heat
 
     GPIO.setup(SSR_PIN, GPIO.OUT)
     GPIO.output(SSR_PIN, GPIO.LOW)
     
     lasttime_heat = time.time_ns()
+    maxtime_heat = 0
     kwh_val = 0
     
 # ---
 
 def update_heating():
     
-    global lasttime_heat, kwh_val
+    global lasttime_heat, kwh_val, maxtime_heat
     # global pid_out
     
     # Create slow PWM signal with pid_out/PID_OUT_PERIOD  duty
     
     now = time.time_ns()
+
+    dtt = now - lasttime_heat 
+    #if dtt > maxtime_heat : 
+    maxtime_heat = dtt     
+    
     if now - lasttime_heat > PID_OUT_PERIOD * 1000000 : 
         lasttime_heat = lasttime_heat + PID_OUT_PERIOD * 1000000
         if pid_out > PID_OUT_MIN : 
@@ -437,6 +461,7 @@ def update_heating():
 def update_heating_thread() :
 
     global stop_threads, ssr
+    # global maxtime_heat
 
     logging.info("Heating thread started\n")
 
@@ -449,6 +474,7 @@ def update_heating_thread() :
     GPIO.output(SSR_PIN, GPIO.LOW)
 
     logging.info("Heating thread finished\n")
+    logging.info("Last sample interval: "+str(maxtime_heat/1e6)+"ms\n")
 
 
 # ---------- Motor control
@@ -457,7 +483,7 @@ def init_motors():
     
     global pwm_rot, pwm_fan, pwm_lin, pwm_sound
     global fan_val_old, rot_val_old, lin_val_old, fan_val, rot_val, lin_val, lin_z
-    global sound_freq, sound_freq_old, sound_duty, sound_duty_old, sound_on, led_on, lasttime_sound
+    global sound_freq, sound_freq_old, sound_duty, sound_duty_old, sound_on, led_on, lasttime_sound, lasttime_motors, maxtime_motors
     # global ssr, 
     
     fan_val_old = 0
@@ -474,6 +500,8 @@ def init_motors():
     sound_on = False
     led_on = False
     lasttime_sound = 0
+    lasttime_motors = 0
+    maxtime_motors = 0
     
     if ROT_HW_PWM==False : GPIO.setup(ROT_PWM_PIN, GPIO.OUT)
     GPIO.setup(ROT_DIR_PIN, GPIO.OUT)
@@ -520,7 +548,7 @@ def init_motors():
 
 def update_motors():
     
-    global fan_val_old, rot_val_old, lin_val_old, sound_freq_old, sound_duty, sound_duty_old, lasttime_sound
+    global fan_val_old, rot_val_old, lin_val_old, sound_freq_old, sound_duty, sound_duty_old, lasttime_sound, lasttime_motors, maxtime_motors, lin_z
     # global pwm_rot, pwm_fan, pwm_lin, fan_val, rot_val, lin_val, sound_freq, sound_on
     
     # rotation: with software PWM not really accurate and const speed!
@@ -556,11 +584,17 @@ def update_motors():
             else :
                 pwm_lin.ChangeDutyCycle(0)
         else :
-            # motLinFreq = 2.86824 * abs(lin_val) # mm/min to step frequency
-            # motLinFreq = 5.0 * abs(lin_val) * 8.33 # with HW PWM
-            motLinFreq = 2.5 * abs(lin_val) * 8.33 # Correction Frankfurt
+            # mm/min to step frequency
+            # 1.8 deg/200 steps & D=32 mm & 1:19.2 => 0.026 mm/step
+            # 16 microsteps (both jumpers = 3.3V) => 0.00163 mm/step => 614 steps/mm
+            # 1 mm/min => 614 steps/min = 10.2 steps/sec = 10.2 Hz
+            motLinFreq = 10.0 * abs(lin_val) 
             if HW_VERSION == 1 :
-                motLinFreq = 0.87 * 1.12 * 20 * 0.541 * abs(lin_val) * 8.33 # Vorfakor: 8.33
+                motLinFreq = 87.5 * abs(lin_val) 
+            if HW_VERSION == 3 :
+                motLinFreq = 20.8 * abs(lin_val) # V3, Correction Frankfurt
+            if HW_VERSION == 5 :
+                motLinFreq = 10.4 * abs(lin_val) # V5
             # if motLinFreq < 0.5 : motLinFreq = 0.5
             if motLinFreq > 1500 : motLinFreq = 1500
             GPIO.output(LIN_ON_PIN, GPIO.HIGH)
@@ -614,6 +648,14 @@ def update_motors():
         sound_freq_old = sound_freq
         sound_duty_old  = sound_duty
 
+    now = time.time_ns() 
+    dtt = now - lasttime_motors
+    #if dtt > maxtime_motors : 
+    maxtime_motors = dtt 
+    lasttime_motors = now
+    
+    lin_z += lin_val * dtt/1e9/60 # calculate Z position
+
 
 def stop_motors():
 
@@ -629,18 +671,21 @@ def stop_motors():
 
 def update_motors_thread() :
 
-    global stop_threads, lin_z
+    global stop_threads
+    #, lin_z
+    # global maxtime_motors
 
     logging.info("Motor thread started\n")
 
     while stop_threads == False :
-        lin_z += lin_val * MOTORS_SAMPLETIME/1000/60 # calculate Z position, but how accurate it is here
+        # lin_z += lin_val * MOTORS_SAMPLETIME/1000/60 # calculate Z position, but how accurate it is here
         update_motors()
         time.sleep(MOTORS_SAMPLETIME/1000)  
     
     stop_motors()
         
     logging.info("Motor thread finished\n")
+    logging.info("Last sample interval: "+str(maxtime_motors/1e6)+"ms\n")
 
 # ---------- Camera
 
@@ -665,11 +710,13 @@ def get_photo(exposure_time, filename) :
     # global picam2
 
     # picam2.start_and_capture_file("test.jpg")
-    picam2.controls.ExposureTime = exposure_time
-    picam2.start(show_preview=False)
-    time.sleep(0.2)
-    picam2.capture_file(filename)
-
+    try :
+        picam2.controls.ExposureTime = exposure_time
+        picam2.start(show_preview=False)
+        time.sleep(0.2)
+        picam2.capture_file(filename)
+    except :
+        logging.error('Error taking camera image!\n')    
 
 # ---------- Serial interface
 
@@ -699,7 +746,7 @@ def init_vifcon() :
 
 def gui() :
 
-    global stop_threads, pid_mode, pid_sel
+    global stop_threads, pid_mode, pid_sel, lasttime_plot
     # global tt, tc1_val, tc2_val, pt1_val, hx_val, kwh_val, pid_out, pid_in, pid_set, pid_out_p, pid_out_i, pid_out_d, 
     # global lin_z, lin_val, rot_val, fan_val
 
@@ -725,6 +772,8 @@ def gui() :
         cnv_img.grid(column=1, row=0, sticky='w')
 
     # ---------- Plot
+    
+    lasttime_plot = 0
 
     # Label, visibility, y axis, scale factor, linestyle, line/labelcolor, if updated in loop
     # Axes: x1, y1, y2 or none 
@@ -734,10 +783,10 @@ def gui() :
         ['T_TC_1[C]', True, 'y1', 1.0, 'solid', 'fuchsia', True],
         ['T_TC_2[C]', True, 'y1', 1.0, 'solid', 'sienna', True],
         ['T_PT_1[C]', True, 'y1', 1.0, 'solid', 'gold', True],
-        ['T_air[C]', True, 'y1', 1.0, 'solid', 'yellow', True],
-        ['H_air[%]', True, 'y1', 1.0, 'solid', 'skyblue', True],
+        ['T_air[C]', False, 'y1', 1.0, 'solid', 'yellow', True],
+        ['H_air[%]', False, 'y1', 1.0, 'solid', 'skyblue', True],
         ['Weight[g]', True, 'y2', 1.0, 'dashed', 'green', True],
-        ['Energy[kWh]', True, 'y2', 1.0, 'dashed', 'teal', True],
+        ['Energy[kWh]', False, 'y2', 1.0, 'dashed', 'teal', True],
         ['5V-I[mA]', False, 'y2', 1.0, 'dashed', 'darkgreen', True],
         ['PID_Out[%]', True, 'y1', 1.0, 'solid', 'lime', True],
         ['PID_Inp[C]', False, 'y1', 1.0, 'solid', 'tomato', True],
@@ -747,8 +796,8 @@ def gui() :
         ['PID_D[ms]', False, 'y2', 1.0, 'dashed', 'lightgrey', True],
         ['z[mm]', True, 'y1', 1.0, 'solid', 'black', True],
         ['Mot_Lin[mm/s]', True, 'y2', 1.0, 'dashed', 'blue', True],
-        ['Mot_Rot[rpm]', True, 'y2', 1.0, 'dashed', 'cyan', True],
-        ['Mot_Fan[%]', True, 'y2', 1.0, 'dashed', 'steelblue', True],
+        ['Mot_Rot[rpm]', False, 'y2', 1.0, 'dashed', 'cyan', True],
+        ['Mot_Fan[%]', False, 'y2', 1.0, 'dashed', 'steelblue', True],
         ['PID_Set_R', False, 'y1', 1.0, 'dotted', 'red', False],
         ['PID_Out_R', False, 'y1', 1.0, 'dotted', 'lime', False],
         ['Mot_Lin_R', False, 'y2', 1.0, 'dotted', 'blue', False],
@@ -1127,7 +1176,7 @@ def gui() :
             chkctrt.config(background='lime')
             tt_startctrt = tt
             rec.set_sp(tt)
-            if len(rec.sptime2)>0 : figDATi[15].set_data(rec.sptime2, rec.spvalu2)
+            if len(rec.sptime2)>0 : figDATi[18].set_data(rec.sptime2, rec.spvalu2)
             logging.info('Start recipe: '+'tt_startctrt = '+str(tt_startctrt)+'\n')
         else :
             rbctr_change() 
@@ -1182,7 +1231,7 @@ def gui() :
             chkctrp.config(background='lime')
             tt_startctrp = tt
             rec.set_pp(tt)
-            if len(rec.pptime2)>0 : figDATi[16].set_data(rec.pptime2, rec.ppvalu2)
+            if len(rec.pptime2)>0 : figDATi[19].set_data(rec.pptime2, rec.ppvalu2)
             logging.info('Start recipe: '+'tt_startctrp = '+str(tt_startctrp)+'\n')
         else :
             rbctr_change() 
@@ -1248,7 +1297,7 @@ def gui() :
             chkmotl.config(background='lime')
             tt_startmotl = tt
             rec.set_ml(tt)
-            if len(rec.mltime2)>0 : figDATi[17].set_data(rec.mltime2, rec.mlvalu2)
+            if len(rec.mltime2)>0 : figDATi[20].set_data(rec.mltime2, rec.mlvalu2)
             logging.info('Start recipe: '+'tt_startmotl = '+str(tt_startmotl)+'\n')
         else :
             inpmotl.config(state='normal')
@@ -1315,7 +1364,7 @@ def gui() :
             chkmotr.config(background='lime')
             tt_startmotr = tt
             rec.set_mr(tt)
-            if len(rec.mrtime2)>0 : figDATi[18].set_data(rec.mrtime2, rec.mrvalu2)
+            if len(rec.mrtime2)>0 : figDATi[21].set_data(rec.mrtime2, rec.mrvalu2)
             logging.info('Start recipe: '+'tt_startmotr = '+str(tt_startmotr)+'\n')
         else :
             inpmotr.config(state='normal')
@@ -1361,7 +1410,7 @@ def gui() :
             chkmotf.config(background='lime')
             tt_startmotf = tt
             rec.set_mf(tt)
-            if len(rec.mftime2)>0 : figDATi[19].set_data(rec.mftime2, rec.mfvalu2)
+            if len(rec.mftime2)>0 : figDATi[22].set_data(rec.mftime2, rec.mfvalu2)
             logging.info('Start recipe: '+'tt_startmotf = '+str(tt_startmotf)+'\n')
         else :
             inpmotf.config(state='normal')
@@ -1572,7 +1621,7 @@ def gui() :
 
     def update_gui() :
         
-        global tt, ttalarm, start, sound_on, lasttime_cam
+        global tt, ttalarm, start, sound_on, lasttime_cam, lasttime_plot
         # global time_start, stop_threads, lin_val, rot_val, fan_val, pid_mode, pid_set, pid_sel
         # global tt_startctrt, tt_startctrp, tt_startmotl, tt_startmotr, tt_startmotf, tt_startal
         
@@ -1588,13 +1637,13 @@ def gui() :
 
         if start == True :
             
-            if chkctrtv.get() == True : 
+            if chkctrtv.get() == True and len(rec.sptime)>0 : 
                 pid_set_rec = rec.interpol(rec.sptime, rec.spvalu, tt, 1)
                 inpctrtv.set(pid_set_rec)
                 btnctrt_run() # pid_set
                 chkctrt.config(text=str(int(tt - tt_startctrt)) + ' s')
                 
-            if chkctrpv.get() == True : 
+            if chkctrpv.get() == True and len(rec.pptime)>0 : 
                 pid_out_man_rec = rec.interpol(rec.pptime, rec.ppvalu, tt, 1)
                 if pid_out_man_rec >= 0 : # Set manual power
                     inpctrpv.set(pid_out_man_rec)
@@ -1606,25 +1655,25 @@ def gui() :
                     rbctr_change() # pid_mode
                 chkctrp.config(text=str(int(tt - tt_startctrp)) + ' s')
             
-            if chkmotlv.get() == True : 
+            if chkmotlv.get() == True and len(rec.mltime)>0 : 
                 lin_val_rec = rec.interpol(rec.mltime, rec.mlvalu, tt, 0)
                 inpmotlv.set(lin_val_rec)
                 btnmotl_run() # lin_val
                 chkmotl.config(text=str(int(tt - tt_startmotl)) + ' s')
             
-            if chkmotrv.get() == True : 
+            if chkmotrv.get() == True and len(rec.mrtime)>0 : 
                 rot_val_rec = rec.interpol(rec.mrtime, rec.mrvalu, tt, 0)
                 inpmotrv.set(rot_val_rec)
                 btnmotr_run() # rot_val
                 chkmotr.config(text=str(int(tt - tt_startmotr)) + ' s')
             
-            if chkmotfv.get() == True : 
+            if chkmotfv.get() == True and len(rec.mftime)>0 : 
                 fan_val_rec = rec.interpol(rec.mftime, rec.mfvalu, tt, 0)
                 inpmotfv.set(fan_val_rec)
                 btnmotf_run() # fan_val
                 chkmotf.config(text=str(int(tt - tt_startmotf)) + ' s')
             
-            if chkalv.get() == True : 
+            if chkalv.get() == True and len(rec.altime)>0: 
                 alarm_rec = rec.interpol(rec.altime, rec.alvalu, tt, 0)
                 if alarm_rec > 0 : sound_on = True
                 else : sound_on = False
@@ -1708,9 +1757,13 @@ def gui() :
             
             # TODO: If recipe is running, add a vertical line for current time
             
-            # No autoscale here. Use the button
             figDAT.canvas.draw_idle()
-            # figDAT.canvas.flush_events()
+            
+            # Do not update too often. Use the button
+            if now - lasttime_plot > PLOT_UPDATETIME * 1000000 :
+                # figDAT.canvas.flush_events()
+                set_autoscale(True)
+                lasttime_plot = now
         
             with open(fdatanamestr, "a") as fileDAT:
                 for i in serdata:
@@ -1914,6 +1967,7 @@ flognamestr = "logfile_{:s}.txt".format(fname)
 
 logging.basicConfig(
     level=logging.INFO,
+    #level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(message)s",
     #format="%(message)s",
     handlers=[

@@ -11,7 +11,7 @@ global gamepad
 
 def setdevice():
     global gamepad
-    gamepad = InputDevice('/dev/input/event7')
+    gamepad = InputDevice('/dev/input/event6')
     print(gamepad.capabilities(verbose=True))
 
 def getevent():
