@@ -114,5 +114,5 @@ Other settings are related to the limits mentioned above and various hardware co
 [This project](https://poc-handsome.github.io/) has received funding from the European Research Council (ERC) under the 
 European Union’s Horizon Europe framework programme for research and innovation (grant agreement No. 101122970).
 
-<img src="https://raw.githubusercontent.com/poc-handsome/poc-handsome.github.io/master/EN_FundedbytheEU_RGB_POS.png">
+<img src="https://raw.githubusercontent.com/poc-handsome/poc-handsome.github.io/master/EN_FundedbytheEU_RGB_POS.png" width="400">
 
