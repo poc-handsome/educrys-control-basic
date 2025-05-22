@@ -90,6 +90,14 @@ The first list contains the time instants and the second list contains the contr
 
 While the temperature and power are interpolated linearly between the data points, the motor speeds are switched without interpolation (this could be changed in the Python code if needed).
 
+### Gamepad
+
+The gamepad is useful during the seeding process in particular. It can be used in the following way:
+- Button Y (left) decreases the actual pull speed in steps of 1 mm/min
+- Button A (right) increases the actual pull speed in steps of 1 mm/min
+- Button X (top) starts the upward motion if the motor is not already running and the current speed is positive. If the current speed is negative, motor is stopped.
+- Button B (down) starts the downward motion if the motor is not already running and the current speed is negative. If the current speed is positive, motor is stopped.
+
 ### Settings
 
 The first section of the main Python script defines all programm settings. 
