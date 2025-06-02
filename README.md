@@ -1,4 +1,5 @@
 # educrys-control-basic
+[![DOI](https://zenodo.org/badge/978255136.svg)](https://doi.org/10.5281/zenodo.15488125)
 
 This repository provides basic control scripts in Python for the EduCrys setup. A new version with a modular, object-oriented Python code is being developed [here](https://github.com/poc-handsome/educrys-control-modular), but it has not been finished yet.
 
